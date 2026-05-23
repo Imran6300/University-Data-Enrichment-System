@@ -20,8 +20,7 @@ const mongoose = require("mongoose");
 const { parse } = require("csv-parse/sync");
 
 // ── CONFIG ────────────────────────────────────────────────────
-const MONGO_URI =
-  "mongodb+srv://SyedMubashirAhmed1425:f9BbjOxlGkVFMKrl@overseas.iwwlhej.mongodb.net/overseas";
+const MONGO_URI = process.env.MONGO_URI;
 const COLLECTION = "universities";
 // ─────────────────────────────────────────────────────────────
 
