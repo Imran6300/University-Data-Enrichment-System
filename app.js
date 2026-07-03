@@ -11,10 +11,14 @@ require("dotenv").config();
 
 const mongoose = require("mongoose");
 const { startScheduler } = require("./queues/scheduler");
+const { startCountryScheduler } = require("./queues/countryScheduler");
 const { initWorkers } = require("./queues/workers");
 const { logEnrichmentStats } = require("./utils/stats");
 const { pingRedis, closeAllConnections } = require("./utils/redis");
 const { getQueueStats } = require("./queues/enrichmentQueue");
+const {
+  getQueueStats: getCountryQueueStats,
+} = require("./queues/countryEnrichmentQueue");
 
 const STATS_INTERVAL_MS = 5 * 60 * 1000; // every 5 min
 
@@ -42,10 +46,17 @@ async function bootstrap() {
     startScheduler();
     console.log("✅ Scheduler started");
 
+    // ── 4b. Start country content scheduler (Phase 4, 2026-07 — folded in
+    // from the old standalone services/scripts/enrichCountries.js) ──
+    startCountryScheduler();
+    console.log("✅ Country scheduler started");
+
     // ── 5. Initial stats ──
     await logEnrichmentStats();
     const queueStats = await getQueueStats();
     console.log("📦 Queue:", queueStats);
+    const countryQueueStats = await getCountryQueueStats();
+    console.log("🌍 Country queue:", countryQueueStats);
 
     console.log("\n🚀 University Enrichment System Running\n");
 
@@ -54,6 +65,8 @@ async function bootstrap() {
       await logEnrichmentStats();
       const qs = await getQueueStats();
       console.log("📦 Queue:", qs);
+      const cqs = await getCountryQueueStats();
+      console.log("🌍 Country queue:", cqs);
     }, STATS_INTERVAL_MS);
 
     // ── 7. Graceful shutdown ──
