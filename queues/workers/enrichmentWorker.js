@@ -52,7 +52,7 @@ const {
   markDomainDead,
   STATUS,
 } = require("../../utils/domainHealth");
-const { reconcileUniversityGraph } = require("./relationshipGraph");
+const { reconcileUniversityGraph } = require("../relationshipGraph");
 
 // ─────────────────────────────────────────────
 // Configuration (unchanged from previous version)

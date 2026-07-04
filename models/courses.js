@@ -185,10 +185,15 @@ const CourseSchema = new Schema(
 
 // ─────────────────────────────────────────────
 // Slug Generation (existing hook – untouched)
+//
+// BUGFIX: mongoose ^9.6.2 removed the next() callback parameter from
+// pre middleware — see countries.js for the full explanation and the
+// migration-guide link. Fixed here the same way: no `next` parameter,
+// no next() calls, early-return replaces `return next()`.
 // ─────────────────────────────────────────────
 
-CourseSchema.pre("save", async function (next) {
-  if (!this.isModified("title") && this.slug) return next();
+CourseSchema.pre("save", async function () {
+  if (!this.isModified("title") && this.slug) return;
 
   const Course = mongoose.model("Course");
 
@@ -203,14 +208,13 @@ CourseSchema.pre("save", async function (next) {
   }
 
   this.slug = slug;
-  next();
 });
 
 // ─────────────────────────────────────────────
 // Auto-fill SEO defaults before save
 // ─────────────────────────────────────────────
 
-CourseSchema.pre("save", function (next) {
+CourseSchema.pre("save", function () {
   if (!this.seo?.metaTitle && this.title) {
     this.seo = this.seo || {};
     this.seo.metaTitle = `${this.title} Abroad – Fees, Top Universities & Scope | Khizar Overseas`;
@@ -219,8 +223,6 @@ CourseSchema.pre("save", function (next) {
   if (!this.seo?.metaDescription && this.overviewDescription) {
     this.seo.metaDescription = this.overviewDescription.slice(0, 155);
   }
-
-  next();
 });
 
 // ─────────────────────────────────────────────
@@ -252,7 +254,6 @@ CourseSchema.index({ topUniversities: 1 });
 
 // New SEO indexes
 CourseSchema.index({ "seo.noIndex": 1 });
-CourseSchema.index({ comboPageSlugs: 1 });
 CourseSchema.index({ "internalLinking.relatedBlogs": 1 });
 CourseSchema.index({ countries: 1, level: 1 }); // for /courses?country=uk&level=Master pages
 

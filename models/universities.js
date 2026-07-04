@@ -197,15 +197,18 @@ UniversitySchema.index({ partnered: 1 });
 
 // New SEO indexes
 UniversitySchema.index({ "seo.noIndex": 1 });
-UniversitySchema.index({ comboPageSlugs: 1 });
 UniversitySchema.index({ "internalLinking.relatedBlogs": 1 });
 
 // ─────────────────────────────────────────────
 // Hooks (existing slug hook – untouched)
+//
+// BUGFIX: mongoose ^9.6.2 removed the next() callback parameter from
+// pre middleware — see countries.js for the full explanation and the
+// migration-guide link. Fixed here the same way.
 // ─────────────────────────────────────────────
 
-UniversitySchema.pre("save", async function (next) {
-  if (!this.isModified("name") && this.slug) return next();
+UniversitySchema.pre("save", async function () {
+  if (!this.isModified("name") && this.slug) return;
 
   const University = mongoose.model("University");
 
@@ -220,14 +223,13 @@ UniversitySchema.pre("save", async function (next) {
   }
 
   this.slug = slug;
-  next();
 });
 
 // ─────────────────────────────────────────────
 // Auto-fill SEO defaults before save
 // ─────────────────────────────────────────────
 
-UniversitySchema.pre("save", function (next) {
+UniversitySchema.pre("save", function () {
   if (!this.seo?.metaTitle && this.name) {
     this.seo = this.seo || {};
     this.seo.metaTitle = `${this.name} – Admission, Fees & Courses | Khizar Overseas`;
@@ -236,8 +238,6 @@ UniversitySchema.pre("save", function (next) {
   if (!this.seo?.metaDescription && this.description) {
     this.seo.metaDescription = this.description.slice(0, 155);
   }
-
-  next();
 });
 
 module.exports = mongoose.model("University", UniversitySchema);

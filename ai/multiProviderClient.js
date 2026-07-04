@@ -70,6 +70,17 @@ const PROVIDERS = {
 // ─────────────────────────────────────────────
 const MODEL_REGISTRY = [
   // ── NVIDIA (your existing provider) ──
+  // BUGFIX: every entry below previously had `model` pointing to a
+  // different (in several cases nonexistent) model than its own `id`
+  // claimed — e.g. id said "nvidia::meta/llama-3.3-70b-instruct" but the
+  // actual API call used model: "minimaxai/minimax-m2.7", which NVIDIA
+  // doesn't host. NVIDIA's endpoint doesn't fail fast on an unknown
+  // model — the request just hangs until the client timeout, which is
+  // exactly the "⏱️ Timeout" behavior seen in production logs on every
+  // single NVIDIA call. Verified the correct real model string against
+  // NVIDIA's own API reference (docs.api.nvidia.com /
+  // build.nvidia.com) — it matches the `id` field exactly, so `model`
+  // is now id's suffix, not a separate (wrong) value.
   {
     id: "nvidia::meta/llama-3.3-70b-instruct",
     provider: "nvidia",
@@ -112,6 +123,11 @@ const MODEL_REGISTRY = [
   },
 
   // ── Groq (fastest inference, generous free tier) ──
+  // Same bugfix applied here — two of these (llama-3.3/3.1-70b-versatile)
+  // were silently calling "openai/gpt-oss-120b"/"openai/gpt-oss-20b"
+  // instead, which is why they came back "Empty response from model" in
+  // the logs before falling through to groq::llama3-70b-8192 (the one
+  // entry that happened to already have a real, working model string).
   {
     id: "groq::llama-3.3-70b-versatile",
     provider: "groq",
@@ -178,14 +194,7 @@ const MODEL_REGISTRY = [
     maxTokens: 2000,
     contextK: 128,
   },
-  {
-    id: "openrouter::meta-llama/llama-3.1-70b-instruct:free",
-    provider: "openrouter",
-    model: "meta-llama/llama-3.1-70b-instruct:free",
-    tier: 1,
-    maxTokens: 2000,
-    contextK: 128,
-  },
+
   {
     id: "openrouter::mistralai/mistral-7b-instruct:free",
     provider: "openrouter",

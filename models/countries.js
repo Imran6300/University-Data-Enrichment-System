@@ -179,6 +179,16 @@ CountrySchema.index({ "internalLinking.relatedCourses": 1 });
 
 // ─────────────────────────────────────────────
 // Hooks (existing slug hook – untouched)
+//
+// BUGFIX: package.json pins mongoose ^9.6.2. Mongoose 9 removed the
+// next() callback parameter from pre middleware entirely — calling
+// next() where Mongoose no longer supplies it throws "next is not a
+// function" and the save() is rejected. This was breaking every
+// .save() call on this model silently (or loudly, once something
+// actually surfaced the rejection). Fixed by dropping the `next`
+// parameter and `next()` calls; hooks that need to run async code use
+// `async function()` and just `return`/`await` instead.
+// See: https://mongoosejs.com/docs/migrating_to_9.html
 // ─────────────────────────────────────────────
 
 CountrySchema.pre("save", async function () {
@@ -203,7 +213,7 @@ CountrySchema.pre("save", async function () {
 // Auto-fill SEO defaults before save
 // ─────────────────────────────────────────────
 
-CountrySchema.pre("save", function (next) {
+CountrySchema.pre("save", function () {
   // Auto-generate metaTitle if not provided
   if (!this.seo?.metaTitle && this.name) {
     this.seo = this.seo || {};
@@ -214,8 +224,6 @@ CountrySchema.pre("save", function (next) {
   if (!this.seo?.metaDescription && this.whyStudyCards?.length) {
     this.seo.metaDescription = this.whyStudyCards[0].description.slice(0, 155);
   }
-
-  next();
 });
 
 module.exports = mongoose.model("Country", CountrySchema);

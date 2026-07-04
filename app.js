@@ -5,6 +5,9 @@
  * both the BullMQ Redis connection and the cache Redis connection.
  *
  * Also adds a Mongoose duplicate index warning suppressor (cosmetic fix).
+ *
+ * PHASE 5b (2026-07): wires in the course-content scheduler alongside the
+ * existing university/country ones — same bootstrap shape.
  */
 
 require("dotenv").config();
@@ -12,6 +15,7 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const { startScheduler } = require("./queues/scheduler");
 const { startCountryScheduler } = require("./queues/countryScheduler");
+const { startCourseScheduler } = require("./queues/courseScheduler");
 const { initWorkers } = require("./queues/workers");
 const { logEnrichmentStats } = require("./utils/stats");
 const { pingRedis, closeAllConnections } = require("./utils/redis");
@@ -19,6 +23,9 @@ const { getQueueStats } = require("./queues/enrichmentQueue");
 const {
   getQueueStats: getCountryQueueStats,
 } = require("./queues/countryEnrichmentQueue");
+const {
+  getQueueStats: getCourseQueueStats,
+} = require("./queues/courseEnrichmentQueue");
 
 const STATS_INTERVAL_MS = 5 * 60 * 1000; // every 5 min
 
@@ -51,12 +58,19 @@ async function bootstrap() {
     startCountryScheduler();
     console.log("✅ Country scheduler started");
 
+    // ── 4c. Start course content scheduler (Phase 5b, 2026-07) — only
+    // enqueues "high quality" courses (real, backfill-linked demand) ──
+    startCourseScheduler();
+    console.log("✅ Course scheduler started");
+
     // ── 5. Initial stats ──
     await logEnrichmentStats();
     const queueStats = await getQueueStats();
     console.log("📦 Queue:", queueStats);
     const countryQueueStats = await getCountryQueueStats();
     console.log("🌍 Country queue:", countryQueueStats);
+    const courseQueueStats = await getCourseQueueStats();
+    console.log("📚 Course queue:", courseQueueStats);
 
     console.log("\n🚀 University Enrichment System Running\n");
 
@@ -67,6 +81,8 @@ async function bootstrap() {
       console.log("📦 Queue:", qs);
       const cqs = await getCountryQueueStats();
       console.log("🌍 Country queue:", cqs);
+      const crqs = await getCourseQueueStats();
+      console.log("📚 Course queue:", crqs);
     }, STATS_INTERVAL_MS);
 
     // ── 7. Graceful shutdown ──

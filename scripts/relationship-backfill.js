@@ -66,6 +66,7 @@ const Country = require("../models/countries");
 const Course = require("../models/courses");
 const Checkpoint = require("../models/relationshipBackfillCheckpoint");
 const { reconcileUniversityGraph } = require("../queues/relationshipGraph");
+const { ELIGIBILITY_FILTER, escapeRegex } = require("./lib/eligibility");
 
 // ── CLI parsing ──────────────────────────────────────────────────────────
 
@@ -118,22 +119,10 @@ const MODE = MODE_ALL
 const SCOPE_VALUE = COUNTRY_SLUG || COURSE_SLUG || UNIVERSITY_SLUG || null;
 const RUN_KEY = SCOPE_VALUE ? `${MODE}:${SCOPE_VALUE}` : MODE;
 
-// ── Quality filter — same bar as sitemapController's university filter,  ──
-// ── so the backfill never links graph-orphaned low-quality stub records  ──
-const ELIGIBILITY_FILTER = {
-  $or: [
-    { "enrichment.status": "completed" },
-    { isEnriched: true },
-    {
-      $expr: {
-        $gte: [{ $strLenCP: { $ifNull: ["$description", ""] } }, 300],
-      },
-    },
-  ],
-  country: { $exists: true, $ne: null },
-};
-
 // ── Scope resolution ─────────────────────────────────────────────────────
+// (ELIGIBILITY_FILTER and escapeRegex now live in ./lib/eligibility.js —
+// see that file for why, and for the "same bar as sitemapController's
+// university filter" rationale.)
 
 async function resolveScope() {
   let query = { ...ELIGIBILITY_FILTER };
@@ -188,10 +177,6 @@ async function resolveScope() {
   }
 
   return { query, restrictCourseId, label };
-}
-
-function escapeRegex(s) {
-  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // ── Checkpoint handling ──────────────────────────────────────────────────

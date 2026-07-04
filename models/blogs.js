@@ -195,61 +195,66 @@ const BlogPostSchema = new mongoose.Schema(
 // Hooks (existing hook – untouched + new SEO auto-fill)
 // ─────────────────────────────────────────────
 
-BlogPostSchema.pre("validate", async function (next) {
-  try {
-    // ── Existing slug logic (untouched) ─────────────────────────────
-    if (this.isModified("title") || !this.slug) {
-      let baseSlug = slugify(this.title, {
-        lower: true,
-        strict: true,
-        trim: true,
+// ─────────────────────────────────────────────
+// Hooks (existing hook – untouched + new SEO auto-fill)
+//
+// BUGFIX: mongoose ^9.6.2 removed the next() callback parameter from
+// pre middleware — see countries.js for the full explanation and the
+// migration-guide link. An async pre-validate hook now just throws on
+// error (Mongoose treats a rejected promise the same way it used to
+// treat next(err)) instead of calling next(err); the trailing next()
+// on success is simply removed.
+// ─────────────────────────────────────────────
+
+BlogPostSchema.pre("validate", async function () {
+  // ── Existing slug logic (untouched) ─────────────────────────────
+  if (this.isModified("title") || !this.slug) {
+    let baseSlug = slugify(this.title, {
+      lower: true,
+      strict: true,
+      trim: true,
+    });
+
+    let slug = baseSlug;
+    let counter = 1;
+
+    while (true) {
+      const existing = await mongoose.models.BlogPost.findOne({
+        slug,
+        _id: { $ne: this._id },
       });
-
-      let slug = baseSlug;
-      let counter = 1;
-
-      while (true) {
-        const existing = await mongoose.models.BlogPost.findOne({
-          slug,
-          _id: { $ne: this._id },
-        });
-        if (!existing) break;
-        slug = `${baseSlug}-${counter}`;
-        counter++;
-      }
-
-      this.slug = slug;
+      if (!existing) break;
+      slug = `${baseSlug}-${counter}`;
+      counter++;
     }
 
-    if (!this.metaTitle) this.metaTitle = this.title;
-    if (!this.metaDescription && this.excerpt)
-      this.metaDescription = this.excerpt.slice(0, 155);
-    if (!this.altText) this.altText = this.title;
+    this.slug = slug;
+  }
 
-    // ── New SEO auto-fill ────────────────────────────────────────────
-    // Sync socialMeta fallbacks
-    if (!this.socialMeta?.ogTitle)
-      this.socialMeta = {
-        ...this.socialMeta,
-        ogTitle: this.metaTitle || this.title,
-      };
-    if (!this.socialMeta?.ogDescription)
-      this.socialMeta = {
-        ...this.socialMeta,
-        ogDescription: this.metaDescription,
-      };
+  if (!this.metaTitle) this.metaTitle = this.title;
+  if (!this.metaDescription && this.excerpt)
+    this.metaDescription = this.excerpt.slice(0, 155);
+  if (!this.altText) this.altText = this.title;
 
-    // Auto-compute word count for structured data
-    if (this.content && !this.structuredData?.wordCount) {
-      this.structuredData = {
-        ...(this.structuredData || {}),
-        wordCount: this.content.trim().split(/\s+/).length,
-      };
-    }
+  // ── New SEO auto-fill ────────────────────────────────────────────
+  // Sync socialMeta fallbacks
+  if (!this.socialMeta?.ogTitle)
+    this.socialMeta = {
+      ...this.socialMeta,
+      ogTitle: this.metaTitle || this.title,
+    };
+  if (!this.socialMeta?.ogDescription)
+    this.socialMeta = {
+      ...this.socialMeta,
+      ogDescription: this.metaDescription,
+    };
 
-    next();
-  } catch (err) {
-    next(err);
+  // Auto-compute word count for structured data
+  if (this.content && !this.structuredData?.wordCount) {
+    this.structuredData = {
+      ...(this.structuredData || {}),
+      wordCount: this.content.trim().split(/\s+/).length,
+    };
   }
 });
 
